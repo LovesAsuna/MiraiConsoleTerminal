@@ -1,0 +1,20 @@
+Configuration:
+  status: warn
+  name: YAMLConfigTest
+  packages: "com.hyosakura.terminal"
+  appenders:
+    JLine:
+      name: STDOUT
+      exclusive: "io\\.netty\\..*"
+      PatternLayout:
+        Pattern: "%highlight{%d{HH:mm:ss} [%level] %c - %m%n}{FATAL=RED, ERROR=RED, WARN=YELLOW, INFO=FG_GREEN, DEBUG=GRAY, TRACE=WHITE}"
+    File:
+      name: File
+      fileName: "bot.log"
+      PatternLayout:
+        Pattern: "%d{HH:mm:ss} [%level] %c - %m%n}"
+  Loggers:
+    Root:
+      level: all
+      AppenderRef:
+        ref: STDOUT
