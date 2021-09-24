@@ -7,14 +7,35 @@ Configuration:
       name: STDOUT
       exclusive: "io\\.netty\\..*"
       PatternLayout:
-        Pattern: "%highlight{%d{HH:mm:ss} [%level] %c - %m%n}{FATAL=RED, ERROR=RED, WARN=YELLOW, INFO=FG_GREEN, DEBUG=GRAY, TRACE=WHITE}"
+        Pattern: "%highlight{%d{HH:mm:ss} [%level] %c - %m%n}{FATAL=RED, ERROR=RED, WARN=YELLOW, INFO=FG_GREEN, DEBUG=GRAY, TRACE=WHITE}%style{%exception}{RED}"
     File:
       name: File
+      append: false
       fileName: "bot.log"
       PatternLayout:
-        Pattern: "%d{HH:mm:ss} [%level] %c - %m%n}"
+        Pattern: "%d{HH:mm:ss} [%level] %c - %m%n%exception"
   Loggers:
+    logger:
+      - name: main
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: STDOUT
+          - ref: File
+      - name: LuckPerms
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: STDOUT
+          - ref: File
+      - name: Bot
+        level: trace
+        additivity: false
+        AppenderRef:
+          - ref: STDOUT
+          - ref: File
     Root:
-      level: all
+      level: error
       AppenderRef:
-        ref: STDOUT
+        - ref: STDOUT
+        - ref: File
