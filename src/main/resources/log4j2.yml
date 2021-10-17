@@ -8,12 +8,26 @@ Configuration:
       exclusive: "io\\.netty\\..*"
       PatternLayout:
         Pattern: "%highlight{%d{HH:mm:ss} [%level] %c - %m%n}{FATAL=RED, ERROR=RED, WARN=YELLOW, INFO=FG_GREEN, DEBUG=GRAY, TRACE=WHITE}%style{%exception}{RED}"
-    File:
-      name: File
-      append: false
-      fileName: "bot.log"
-      PatternLayout:
-        Pattern: "%d{HH:mm:ss} [%level] %c - %m%n%exception"
+    RollingFile:
+      - name: normal
+        append: true
+        fileName: "bot.log"
+        PatternLayout:
+          Pattern: "%d{HH:mm:ss} [%level] %c - %m%n%exception"
+        OnStartupTriggeringPolicy:
+          minSize: 0
+        filePattern: "logs/normal-%i.log.zip"
+      - name: error
+        append: false
+        fileName: "error.log"
+        PatternLayout:
+          Pattern: "%d{HH:mm:ss} [%level] %c - %m%n%exception"
+        Filters:
+          ThresholdFilter:
+            level: error
+        OnStartupTriggeringPolicy:
+          minSize: 1
+        filePattern: "logs/error-%i.log.zip"
   Loggers:
     logger:
       - name: main
@@ -21,21 +35,22 @@ Configuration:
         additivity: false
         AppenderRef:
           - ref: STDOUT
-          - ref: File
+          - ref: normal
       - name: LuckPerms
         level: info
         additivity: false
         AppenderRef:
           - ref: STDOUT
-          - ref: File
+          - ref: normal
       - name: Bot
         level: trace
         additivity: false
         AppenderRef:
           - ref: STDOUT
-          - ref: File
+          - ref: normal
+          - ref: error
     Root:
       level: error
       AppenderRef:
         - ref: STDOUT
-        - ref: File
+        - ref: normal
