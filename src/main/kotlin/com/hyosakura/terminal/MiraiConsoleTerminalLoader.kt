@@ -27,6 +27,7 @@ object MiraiConsoleTerminalLoader {
     @OptIn(ConsoleExperimentalApi::class)
     @JvmStatic
     fun main(args: Array<String>) {
+        System.setProperty("log4j.skipJansi", "false")
         startAsDaemon()
         try {
             runBlocking {
