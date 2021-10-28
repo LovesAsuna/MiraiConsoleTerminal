@@ -48,9 +48,9 @@ Configuration:
         AppenderRef:
           - ref: STDOUT
           - ref: normal
-          - ref: error
     Root:
       level: error
       AppenderRef:
         - ref: STDOUT
         - ref: normal
+        - ref: error
