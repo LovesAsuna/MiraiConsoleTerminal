@@ -1,4 +1,4 @@
-package com.hyosakura.terminal/*
+/*
  * Copyright 2019-2021 Mamoe Technologies and contributors.
  *
  *  此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
@@ -10,7 +10,30 @@ package com.hyosakura.terminal/*
  * @author Karlatemp <karlatemp@vip.qq.com> <https://github.com/Karlatemp>
  */
 
+package com.hyosakura.terminal
+
+import net.mamoe.mirai.console.ConsoleFrontEndImplementation
+import net.mamoe.mirai.console.MiraiConsoleImplementation
+
+@Retention(AnnotationRetention.BINARY)
+@RequiresOptIn(level = RequiresOptIn.Level.WARNING)
+@Target(
+    AnnotationTarget.CLASS,
+    AnnotationTarget.TYPEALIAS,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.PROPERTY,
+    AnnotationTarget.FIELD,
+    AnnotationTarget.CONSTRUCTOR
+)
+@MustBeDocumented
+annotation class ConsoleTerminalExperimentalApi
+
+@ConsoleTerminalExperimentalApi
 object ConsoleTerminalSettings {
+    @OptIn(ConsoleFrontEndImplementation::class)
+    @JvmField
+    var launchOptions: MiraiConsoleImplementation.ConsoleLaunchOptions = MiraiConsoleImplementation.ConsoleLaunchOptions()
+
     @JvmField
     var setupAnsi: Boolean = System.getProperty("os.name")
         .lowercase()
@@ -27,4 +50,7 @@ object ConsoleTerminalSettings {
 
     @JvmField
     var noConsoleReadingReplacement: String = ""
+
+    @JvmField
+    var noLogging = false
 }

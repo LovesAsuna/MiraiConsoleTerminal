@@ -17,28 +17,30 @@
     "INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER_WARNING",
     "EXPOSED_SUPER_CLASS"
 )
-@file:OptIn(ConsoleInternalApi::class, ConsoleFrontEndImplementation::class)
+@file:OptIn(ConsoleInternalApi::class, ConsoleFrontEndImplementation::class, ConsoleTerminalExperimentalApi::class)
 
 package com.hyosakura.terminal
 
 
-import com.hyosakura.terminal.ConsoleInputImpl.requestInput
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.*
 import net.mamoe.mirai.console.ConsoleFrontEndImplementation
 import net.mamoe.mirai.console.MiraiConsole
 import net.mamoe.mirai.console.MiraiConsoleFrontEndDescription
 import net.mamoe.mirai.console.MiraiConsoleImplementation
+import net.mamoe.mirai.console.command.CommandManager
 import net.mamoe.mirai.console.data.MultiFilePluginDataStorage
 import net.mamoe.mirai.console.data.PluginDataStorage
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginLoader
 import net.mamoe.mirai.console.plugin.loader.PluginLoader
-import net.mamoe.mirai.console.util.*
-import net.mamoe.mirai.utils.*
+import com.hyosakura.terminal.ConsoleInputImpl.requestInput
 import com.hyosakura.terminal.noconsole.AllEmptyLineReader
 import com.hyosakura.terminal.noconsole.NoConsole
+import net.mamoe.mirai.console.internal.util.semver.RequirementParser.Token.Begin.line
+import net.mamoe.mirai.console.util.ConsoleExperimentalApi
+import net.mamoe.mirai.console.util.ConsoleInput
+import net.mamoe.mirai.console.util.ConsoleInternalApi
+import net.mamoe.mirai.console.util.SemVersion
+import net.mamoe.mirai.utils.*
 import org.apache.logging.log4j.core.Filter
 import org.apache.logging.log4j.core.Layout
 import org.apache.logging.log4j.core.LogEvent
@@ -61,7 +63,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
- * mirai-console-com.hyosakura.terminal.getTerminal 后端实现
+ * mirai-console-terminal 后端实现
  *
  * @see MiraiConsoleTerminalLoader CLI 入口点
  */
@@ -77,7 +79,7 @@ open class MiraiConsoleImplementationTerminal
     override val configStorageForJvmPluginLoader: PluginDataStorage = MultiFilePluginDataStorage(rootPath.resolve("config")),
     override val configStorageForBuiltIns: PluginDataStorage = MultiFilePluginDataStorage(rootPath.resolve("config")),
 ) : MiraiConsoleImplementation, CoroutineScope by CoroutineScope(
-    NamedSupervisorJob("com.hyosakura.terminal.MiraiConsoleImplementationTerminal") +
+    SupervisorJob() + CoroutineName("MiraiConsoleImplementationTerminal") +
             CoroutineExceptionHandler { coroutineContext, throwable ->
                 if (throwable is CancellationException) {
                     return@CoroutineExceptionHandler
@@ -85,21 +87,47 @@ open class MiraiConsoleImplementationTerminal
                 val coroutineName = coroutineContext[CoroutineName]?.name ?: "<unnamed>"
                 MiraiConsole.mainLogger.error("Exception in coroutine $coroutineName", throwable)
             }) {
+    override val jvmPluginLoader: JvmPluginLoader by lazy { backendAccess.createDefaultJvmPluginLoader(coroutineContext) }
+    override val commandManager: CommandManager by lazy { backendAccess.createDefaultCommandManager(coroutineContext) }
     override val consoleInput: ConsoleInput get() = ConsoleInputImpl
     override val isAnsiSupported: Boolean get() = true
+    override val consoleDataScope: MiraiConsoleImplementation.ConsoleDataScope by lazy {
+        MiraiConsoleImplementation.ConsoleDataScope.createDefault(
+            coroutineContext,
+            dataStorageForBuiltIns,
+            configStorageForBuiltIns
+        )
+    }
+    // used in test
+    internal val logService: LoggingService
 
     override fun createLoginSolver(requesterBot: Long, configuration: BotConfiguration): LoginSolver {
         LoginSolver.Default?.takeIf { it !is StandardCharImageLoginSolver }?.let { return it }
         return StandardCharImageLoginSolver(input = { requestInput("LOGIN> ") })
     }
 
-    override fun createLogger(identity: String?): MiraiLogger = LoggerCreator(identity)
+    @OptIn(MiraiInternalApi::class)
+    override fun createLogger(identity: String?): MiraiLogger = LoggerCreator(identity, logService)
 
     init {
         with(rootPath.toFile()) {
             mkdir()
             require(isDirectory) { "rootDir $absolutePath is not a directory" }
+            logService = if (ConsoleTerminalSettings.noLogging) {
+                LoggingServiceNoop()
+            } else {
+                LoggingServiceI(childScope("Log Service")).also { service ->
+                    service.startup(resolve("logs"))
+                }
+            }
         }
+    }
+
+    override val consoleLaunchOptions: MiraiConsoleImplementation.ConsoleLaunchOptions
+        get() = ConsoleTerminalSettings.launchOptions
+
+    override fun preStart() {
+        overrideSTD(this)
     }
 }
 
@@ -163,29 +191,34 @@ private object ConsoleFrontEndDescImpl : MiraiConsoleFrontEndDescription {
 internal val ANSI_RESET = Ansi().reset().toString()
 
 @OptIn(MiraiInternalApi::class)
-internal val LoggerCreator: (identity: String?) -> MiraiLogger = {
+internal val LoggerCreator: (identity: String?, logService: LoggingService) -> MiraiLogger = { identity, logService ->
     object : MiraiLoggerPlatformBase() {
-        override val identity: String? = it
+        override val identity: String? = identity
         private val logger = LoggerFactory.getLogger(identity)
 
         override fun debug0(message: String?, e: Throwable?) {
             logger.debug(message, e)
+            logService.pushLine(message!!)
         }
 
         override fun error0(message: String?, e: Throwable?) {
             logger.error(message, e)
+            logService.pushLine(message!!)
         }
 
         override fun info0(message: String?, e: Throwable?) {
             logger.info(message, e)
+            logService.pushLine(message!!)
         }
 
         override fun verbose0(message: String?, e: Throwable?) {
             logger.trace(message, e)
+            logService.pushLine(message!!)
         }
 
         override fun warning0(message: String?, e: Throwable?) {
             logger.warn(message, e)
+            logService.pushLine(message!!)
         }
 
     }
@@ -204,7 +237,8 @@ class JLineAppender(
         exclusive?.let {
             if (Regex(it).matches(event.loggerName)) return
         }
-        lineReader.printAbove(layout.toSerializable(event).toString() )
+        val text = layout.toSerializable(event).toString() + ANSI_RESET
+        lineReader.printAbove(text)
     }
 
     companion object {

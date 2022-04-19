@@ -10,11 +10,11 @@
 /*
  * @author Karlatemp <karlatemp@vip.qq.com> <https://github.com/Karlatemp>
  */
-
+@file:OptIn(ConsoleTerminalExperimentalApi::class)
 
 package com.hyosakura.terminal.noconsole
 
-
+import com.hyosakura.terminal.ConsoleTerminalExperimentalApi
 import com.hyosakura.terminal.ConsoleTerminalSettings
 import org.jline.keymap.KeyMap
 import org.jline.reader.*
@@ -69,6 +69,7 @@ internal object AllIgnoredOutputStream : OutputStream() {
 }
 
 internal val SystemOutputPrintStream by lazy {
+    @OptIn(ConsoleTerminalExperimentalApi::class)
     if (ConsoleTerminalSettings.setupAnsi) {
         org.fusesource.jansi.AnsiConsole.systemInstall()
     }
@@ -80,11 +81,13 @@ internal object AllEmptyLineReader : LineReader {
 
     override fun printAbove(str: String?) {
         if (str == null) return
+        @OptIn(ConsoleTerminalExperimentalApi::class)
         if (ConsoleTerminalSettings.noAnsi) {
             SystemOutputPrintStream.println(ANSI_REGEX.replace(str, ""))
         } else SystemOutputPrintStream.println(str)
     }
 
+    @OptIn(ConsoleTerminalExperimentalApi::class)
     override fun readLine(): String =
         if (ConsoleTerminalSettings.noConsoleSafeReading) ConsoleTerminalSettings.noConsoleReadingReplacement
         else throw EndOfFileException("Unsupported Reading line when console front-end closed.")

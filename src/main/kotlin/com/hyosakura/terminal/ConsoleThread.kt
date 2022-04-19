@@ -1,4 +1,4 @@
-package com.hyosakura.terminal/*
+/*
  * Copyright 2019-2021 Mamoe Technologies and contributors.
  *
  * 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
@@ -6,6 +6,10 @@ package com.hyosakura.terminal/*
  *
  * https://github.com/mamoe/mirai/blob/dev/LICENSE
  */
+
+@file:OptIn(ExperimentalCommandDescriptors::class)
+
+package com.hyosakura.terminal
 
 import kotlinx.coroutines.*
 import net.mamoe.mirai.console.MiraiConsole
@@ -17,21 +21,21 @@ import net.mamoe.mirai.console.command.descriptor.CommandValueParameter
 import net.mamoe.mirai.console.command.descriptor.ExperimentalCommandDescriptors
 import net.mamoe.mirai.console.command.parse.CommandCall
 import net.mamoe.mirai.console.command.parse.CommandValueArgument
-import net.mamoe.mirai.console.util.*
+import com.hyosakura.terminal.noconsole.NoConsole
+import net.mamoe.mirai.console.util.ConsoleInternalApi
+import net.mamoe.mirai.console.util.cast
+import net.mamoe.mirai.console.util.requestInput
+import net.mamoe.mirai.console.util.safeCast
 import net.mamoe.mirai.utils.MiraiLogger
 import net.mamoe.mirai.utils.warning
-import com.hyosakura.terminal.noconsole.NoConsole
 import org.jline.reader.EndOfFileException
 import org.jline.reader.UserInterruptException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.isSubclassOf
 
-val consoleLogger by lazy { MiraiLogger.Factory.create(MiraiLogger::class, "console") }
+val consoleLogger by lazy { MiraiLogger.Factory.create(MiraiConsole::class, "console") }
 
-@OptIn(
-    ConsoleInternalApi::class, ExperimentalCommandDescriptors::class,
-    ConsoleExperimentalApi::class
-)
+@OptIn(ConsoleInternalApi::class, ConsoleTerminalExperimentalApi::class, ExperimentalCommandDescriptors::class)
 internal fun startupConsoleThread() {
     if (terminal is NoConsole) return
 
@@ -79,7 +83,7 @@ internal fun startupConsoleThread() {
                 continue
             }
             try {
-                // com.hyosakura.terminal.getConsoleLogger.debug("INPUT> $next")
+                // consoleLogger.debug("INPUT> $next")
                 when (val result = ConsoleCommandSender.executeCommand(next)) {
                     is Success -> {
                     }
@@ -121,7 +125,7 @@ internal fun startupConsoleThread() {
     }
 }
 
-@OptIn(ExperimentalCommandDescriptors::class, ConsoleExperimentalApi::class)
+@OptIn(ExperimentalCommandDescriptors::class)
 private fun List<UnmatchedCommandSignature>.render(command: Command, call: CommandCall): String {
     val list =
         this.filter lambda@{ signature ->
@@ -135,14 +139,13 @@ private fun List<UnmatchedCommandSignature>.render(command: Command, call: Comma
     return list.joinToString("\n") { it.render(command) }
 }
 
-@OptIn(ExperimentalCommandDescriptors::class, ConsoleExperimentalApi::class)
 private fun List<CommandValueParameter<*>>.anyStringConstantUnmatched(arguments: List<CommandValueArgument>): Boolean {
     return this.zip(arguments).any { (parameter, argument) ->
         parameter is StringConstant && !parameter.accepts(argument, null)
     }
 }
 
-@OptIn(ExperimentalCommandDescriptors::class, ConsoleExperimentalApi::class)
+@OptIn(ExperimentalCommandDescriptors::class)
 internal fun UnmatchedCommandSignature.render(command: Command): String {
     @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
     val usage =
@@ -150,7 +153,7 @@ internal fun UnmatchedCommandSignature.render(command: Command): String {
     return usage.trim() + "    (${failureReason.render()})"
 }
 
-@OptIn(ExperimentalCommandDescriptors::class, ConsoleExperimentalApi::class)
+@OptIn(ExperimentalCommandDescriptors::class)
 internal fun FailureReason.render(): String {
     return when (this) {
         is FailureReason.InapplicableReceiverArgument -> "需要由 ${this.parameter.renderAsName()} 执行"
@@ -159,13 +162,13 @@ internal fun FailureReason.render(): String {
         is FailureReason.NotEnoughArguments -> "参数不足"
         is FailureReason.ResolutionAmbiguity -> "调用歧义"
         is FailureReason.ArgumentLengthMismatch -> {
-            // should not happen, com.hyosakura.terminal.render it anyway.
+            // should not happen, render it anyway.
             "参数长度不匹配"
         }
     }
 }
 
-@OptIn(ExperimentalCommandDescriptors::class, ConsoleExperimentalApi::class)
+@OptIn(ExperimentalCommandDescriptors::class)
 internal fun CommandReceiverParameter<*>.renderAsName(): String {
     val classifier = this.type.classifier.cast<KClass<out CommandSender>>()
     return when {
